@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VoxClone Studio — All-in-One Voice Cloning Website</title>
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --surface: #131822;
+      --surface-2: #1b2230;
+      --surface-3: #242d3f;
+      --border: #2c364b;
+      --cyan: #22d3ee;
+      --cyan-ink: #042229;
+      --amber: #f59e0b;
+      --green: #10b981;
+      --red: #f43f5e;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+    body.light {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-2: #f1f5f9;
+      --surface-3: #e2e8f0;
+      --border: #cbd5e1;
+      --cyan: #0891b2;
+      --cyan-ink: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px 12px 48px;
+      line-height: 1.5;
+    }
+    .container { max-width: 1060px; margin: 0 auto; display: grid; gap: 16px; }
+    header {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 16px 18px;
+    }
+    .brand h1 { font-size: 1.35rem; letter-spacing: -0.02em; }
+    .brand p { color: var(--muted); font-size: 0.84rem; }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 8px; padding: 6px 13px; border-radius: 999px;
+      font-size: 0.8rem; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .status-idle .dot { background: var(--muted); }
+    .status-recording .dot, .status-uploading .dot, .status-generating .dot {
+      background: var(--amber); box-shadow: 0 0 10px var(--amber); animation: pulse 1s infinite;
+    }
+    .status-ready .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .status-error .dot { background: var(--red); }
+    @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.35; } }
+    .tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+    .tab-btn {
+      cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+      padding: 10px 16px; border-radius: 12px; font-weight: 600; font-size: 0.86rem; white-space: nowrap;
+      transition: 0.15s;
+    }
+    .tab-btn.active { background: var(--cyan); color: var(--cyan-ink); border-color: transparent; }
+    .grid { display: grid; grid-template-columns: 1.25fr 0.9fr; gap: 16px; }
+    @media (max-width: 840px) { .grid { grid-template-columns: 1fr; } }
+    .stack { display: grid; gap: 16px; align-content: start; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 18px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .card h2 { font-size: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    label { font-size: 0.8rem; color: var(--muted); display: block; margin-bottom: 5px; }
+    input[type="text"], input[type="password"], select, textarea {
+      width: 100%; background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 12px; font-size: 0.92rem; outline: none; font-family: inherit;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
+    textarea { min-height: 150px; resize: vertical; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .btn {
+      cursor: pointer; border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+      padding: 10px 15px; border-radius: 12px; font-weight: 600; font-size: 0.86rem;
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px; text-decoration: none;
+      min-height: 44px;
+    }
+    .btn:hover { border-color: var(--cyan); }
+    .btn-primary { background: var(--cyan); color: var(--cyan-ink); border-color: transparent; }
+    .btn-danger { background: #42101b; color: #fecdd3; border-color: #881337; }
+    .chip {
+      cursor: pointer; font-size: 0.78rem; padding: 6px 12px; border-radius: 999px;
+      background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+    }
+    .chip:hover { color: var(--text); border-color: var(--cyan); }
+    .slider-header { display: flex; justify-content: space-between; font-size: 0.84rem; margin-bottom: 4px; }
+    input[type="range"] { width: 100%; accent-color: var(--cyan); }
+    audio { width: 100%; }
+    canvas#waveCanvas {
+      width: 100%; height: 54px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border);
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+    .history-item {
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .error-box {
+      background: #42101b; border: 1px solid #881337; color: #fecdd3;
+      border-radius: 12px; padding: 12px; font-size: 0.85rem; display: grid; gap: 10px;
+    }
+    .ok-box {
+      background: #0a3326; border: 1px solid #10b981; color: #a7f3d0;
+      border-radius: 12px; padding: 12px; font-size: 0.85rem;
+    }
+    pre {
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px;
+      overflow-x: auto; font-size: 0.78rem; line-height: 1.45; white-space: pre;
+    }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <h1>VoxClone Studio</h1>
+        <p>All-in-One Voice Cloning Website • Unlimited Text • Offline + FastAPI</p>
+      </div>
+      <div class="row">
+        <button id="themeBtn" class="chip" title="Toggle Dark/Light">🌓 Theme</button>
+        <div id="statusPill" class="status-pill status-idle">
+          <span class="dot"></span>
+          <span id="statusText">Idle</span>
+        </div>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="studio">🎙 Studio</button>
+      <button class="tab-btn" data-tab="history">🕒 History</button>
+      <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
+      <button class="tab-btn" data-tab="backend">🐍 Backend &amp; ML Guide</button>
+    </nav>
+
+    <section id="tab-studio" class="grid">
+      <div class="stack">
+        <div class="card">
+          <h2>1. Reference Voice Sample <span id="recTimer" class="mono">00:00.0</span></h2>
+          <div class="row">
+            <button id="recordBtn" class="btn">🎙 Record Mic</button>
+            <label class="btn" style="margin:0;">
+              📁 Upload WAV / MP3
+              <input id="fileInput" type="file" accept="audio/*" hidden />
+            </label>
+            <span id="refName" style="font-size:0.84rem; color:var(--muted);">No reference loaded</span>
+          </div>
+          <canvas id="waveCanvas" hidden></canvas>
+          <audio id="refAudioPlayer" controls hidden></audio>
+        </div>
+
+        <div class="card">
+          <h2>2. Script &amp; Language <span id="charCounter" class="mono">0 chars • Unlimited</span></h2>
+          <div class="row" id="presetsRow"></div>
+          <textarea id="scriptInput" placeholder="যে কোনো ভাষায় যত খুশি তত টেক্সট লিখুন বা পেস্ট করুন (কোনো লিমিট নেই)..."></textarea>
+          <div class="row">
+            <div style="flex:1; min-width:170px;">
+              <label for="engineSelect">Synthesis Engine</label>
+              <select id="engineSelect">
+                <option value="offline">Offline Browser Speech (No Server Needed)</option>
+                <option value="fastapi">FastAPI Zero-Shot Server (XTTS-v2)</option>
+              </select>
+            </div>
+            <div style="flex:1; min-width:140px;">
+              <label for="languageSelect">Target Language</label>
+              <select id="languageSelect">
+                <option value="bn">Bengali / বাংলা (bn)</option>
+                <option value="en">English (en)</option>
+                <option value="hi">Hindi / हिन्दी (hi)</option>
+                <option value="es">Spanish (es)</option>
+                <option value="fr">French (fr)</option>
+                <option value="de">German (de)</option>
+                <option value="ja">Japanese (ja)</option>
+                <option value="ar">Arabic (ar)</option>
+              </select>
+            </div>
+            <div style="flex:1; min-width:120px;">
+              <label for="formatSelect">Server Format</label>
+              <select id="formatSelect">
+                <option value="wav">WAV</option>
+                <option value="flac">FLAC</option>
+                <option value="ogg">OGG</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <button id="generateBtn" class="btn btn-primary" style="flex:1;">⚡ Generate Voice</button>
+            <button id="stopSpeechBtn" class="btn btn-danger" hidden>⏹ Stop</button>
+          </div>
+          <div id="errorBox" class="error-box" hidden>
+            <div id="errorText"></div>
+            <button id="switchOfflineBtn" class="btn">Switch to Offline Browser Speech (No Server)</button>
+          </div>
+        </div>
+
+        <div class="card" id="outputCard" hidden>
+          <h2>3. Generated Audio Output</h2>
+          <audio id="outAudioPlayer" controls></audio>
+          <div class="row">
+            <a id="downloadLink" class="btn btn-primary" download="voxclone_output.wav">⬇ Download Audio</a>
+            <span id="outMeta" class="mono" style="color:var(--muted);"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <h2>Voice Controls</h2>
+          <div>
+            <div class="slider-header"><span>Similarity / Pitch Match</span><span id="simVal" class="mono">0.78</span></div>
+            <input id="simSlider" type="range" min="0" max="1" step="0.01" value="0.78" />
+          </div>
+          <div>
+            <div class="slider-header"><span>Speech Speed</span><span id="speedVal" class="mono">1.00x</span></div>
+            <input id="speedSlider" type="range" min="0.5" max="2.0" step="0.05" value="1.0" />
+          </div>
+          <div>
+            <div class="slider-header"><span>Temperature (Server)</span><span id="tempVal" class="mono">0.65</span></div>
+            <input id="tempSlider" type="range" min="0.1" max="1.0" step="0.05" value="0.65" />
+          </div>
+          <p style="font-size:0.8rem; color:var(--muted);">
+            Tip: Offline mode speaks unlimited text directly in Chrome/Edge/Safari without any server. Connect FastAPI in Settings for exact zero-shot voice cloning &amp; WAV file export.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>Quick History</h2>
+          <div id="quickHistoryList" class="stack"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-history" class="card" hidden>
+      <h2>Generation History <button id="clearHistoryBtn" class="chip">Clear All</button></h2>
+      <div id="historyList" class="stack"></div>
+    </section>
+
+    <section id="tab-settings" class="card" hidden>
+      <h2>FastAPI Backend Connection</h2>
+      <p style="font-size:0.85rem; color:var(--muted);">
+        Run <code>server.py</code> on your PC or Cloud GPU and enter its URL below (e.g. <code>http://localhost:8000</code> or <code>https://your-gpu-url</code>).
+      </p>
+      <div>
+        <label for="endpointInput">FastAPI Endpoint URL</label>
+        <input id="endpointInput" type="text" value="http://localhost:8000" />
+      </div>
+      <div>
+        <label for="apiKeyInput">API Key (Optional)</label>
+        <input id="apiKeyInput" type="password" placeholder="Bearer / X-API-Key" />
+      </div>
+      <div class="row">
+        <button id="testHealthBtn" class="btn btn-primary">🔍 Test Connection (/health)</button>
+      </div>
+      <div id="healthResult" hidden></div>
+    </section>
+
+    <section id="tab-backend" class="stack" hidden>
+      <div class="card">
+        <h2>Python FastAPI Backend (<code>server.py</code>)
+          <span class="row">
+            <button id="copyServerBtn" class="chip">Copy</button>
+            <button id="dlServerBtn" class="chip">⬇ server.py</button>
+            <button id="dlReqBtn" class="chip">⬇ requirements.txt</button>
+          </span>
+        </h2>
+        <pre id="serverCodeBlock"></pre>
+      </div>
+
+      <div class="card">
+        <h2>Zero-Shot Voice Cloning ML Pipeline Guide <button id="copyGuideBtn" class="chip">Copy</button></h2>
+        <pre id="guideCodeBlock"></pre>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const PREFS_KEY = 'voxclone_web_prefs_v3';
+    const HISTORY_KEY = 'voxclone_web_history_v3';
+    const PRESETS = [
+      { label: 'বাংলা স্টুডিও', lang: 'bn', text: 'নমস্কার, ভক্সক্লোন স্টুডিওতে আপনাকে স্বাগতম। এখন কোনো ক্যারেক্টার লিমিট ছাড়াই আপনি ইচ্ছামতো বড় টেক্সট থেকে ভয়েস তৈরি করতে পারবেন।' },
+      { label: 'Podcast EN', lang: 'en', text: 'Welcome back to Neural Acoustics. Today we turn a short voice sample into natural, expressive speech.' },
+      { label: 'Hindi HI', lang: 'hi', text: 'नमस्ते, वॉक्सक्लोन स्टूडियो में आपका स्वागत है। यह ज़ीरो-शॉट वॉयस क्लोनिंग का एक उदाहरण है।' }
+    ];
+
+    const SERVER_PY = `import io, os, tempfile, time
+import numpy as np
+import soundfile as sf
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+
+try:
+    import torch, librosa, noisereduce as nr
+    from TTS.api import TTS
+    HAS_XTTS = True
+except ImportError:
+    HAS_XTTS = False
+
+TARGET_SR = 24000
+API_KEY = os.getenv("VOXCLONE_API_KEY", "").strip()
+app = FastAPI(title="VoxClone Studio API")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+class Engine:
+    def __init__(self):
+        self.device = "cuda" if (HAS_XTTS and torch.cuda.is_available()) else "cpu"
+        self.model = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(self.device) if HAS_XTTS else None
+
+    def chunk_text(self, text, limit=320):
+        if len(text) <= limit: return [text]
+        out, start = [], 0
+        while start < len(text):
+            end = min(len(text), start + limit)
+            if end == len(text): out.append(text[start:].strip()); break
+            cut = max((text.rfind(s, start, end) for s in (". ", "! ", "? ", "। ", "\\n", " ")), default=-1)
+            cut = (cut + 1) if cut > start + limit // 3 else end
+            out.append(text[start:cut].strip()); start = cut
+        return [c for c in out if c]
+
+    def clone(self, ref_bytes, text, lang, speed, temp):
+        if self.model is None:
+            dur = max(1.5, (len(text) / 14.0) / max(0.5, speed))
+            t = np.linspace(0, dur, int(TARGET_SR * dur), endpoint=False)
+            return (0.2 * np.sin(2 * np.pi * 160 * t)).astype(np.float32)
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            f.write(ref_bytes); ref_path = f.name
+        wav, _ = librosa.load(ref_path, sr=TARGET_SR, mono=True)
+        wav = nr.reduce_noise(y=wav, sr=TARGET_SR, prop_decrease=0.75)
+        sf.write(ref_path, wav, TARGET_SR)
+        segs = []
+        for c in self.chunk_text(text):
+            out = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
+            with torch.inference_mode():
+                self.model.tts_to_file(text=c, speaker_wav=ref_path, language=lang, file_path=out, speed=speed, temperature=temp)
+            w, _ = sf.read(out, dtype="float32"); segs.append(w); os.remove(out)
+        os.remove(ref_path)
+        return np.concatenate(segs)
+
+engine = Engine()
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "model": "XTTS-v2" if engine.model else "Fallback Demo", "device": engine.device}
+
+@app.post("/api/v1/clone")
+async def clone_api(reference_audio: UploadFile = File(...), text: str = Form(...), language: str = Form("en"),
+                    speed: float = Form(1.0), temperature: float = Form(0.65), output_format: str = Form("wav")):
+    wav = engine.clone(await reference_audio.read(), text.strip(), language, speed, temperature)
+    buf = io.BytesIO(); fmt = output_format.upper() if output_format in {"wav","flac","ogg"} else "WAV"
+    sf.write(buf, wav, TARGET_SR, format=fmt)
+    return Response(content=buf.getvalue(), media_type=f"audio/{fmt.lower()}")`;
+
+    const REQUIREMENTS_TXT = `fastapi>=0.115.0\nuvicorn[standard]>=0.32.0\npython-multipart>=0.0.12\nnumpy>=1.26.4\nsoundfile>=0.12.1\nlibrosa>=0.10.2\nnoisereduce>=3.0.2\ntorch>=2.3.0\ntorchaudio>=2.3.0\nTTS>=0.22.0`;
+
+    const ML_GUIDE = `ZERO-SHOT VOICE CLONING PIPELINE (SENIOR ML ENGINEER GUIDE)
+
+1. AUDIO PREPROCESSING (5-15s clean reference):
+   - Resample to 24 kHz mono (librosa.load / torchaudio.functional.resample)
+   - Strip silence with Silero VAD (snakers4/silero-vad at 16 kHz)
+   - Spectral gating noise reduction (noisereduce)
+   - Normalize loudness to -18 dBFS RMS with 0.95 peak guard
+
+2. SPEAKER EMBEDDING VS END-TO-END:
+   - Two-stage (ECAPA-TDNN d-vector + VITS): Fast, compact, but flattens cadence.
+   - End-to-End (XTTS-v2, F5-TTS, Fish Speech): Conditions on acoustic latents
+     (gpt_cond_latent + speaker_embedding) preserving accent, breath & prosody.
+
+3. PYTORCH INFERENCE & MEMORY OPTIMIZATION:
+   - Cache conditioning latents once per speaker
+   - Wrap inference in torch.inference_mode() + torch.amp.autocast("cuda", fp16)
+   - Call torch.cuda.empty_cache() after long multi-chunk generations
+
+4. EVALUATION CHECKLIST:
+   - Naturalness: UTMOS >= 3.8 / 5.0 & Whisper round-trip WER < 4%
+   - Speaker Similarity: ECAPA-TDNN cosine similarity >= 0.75
+   - Latency: Real-Time Factor (RTF) < 0.35 on L4/A10G; TTFA < 450 ms
+
+5. RUN LOCALLY:
+   pip install -r requirements.txt
+   uvicorn server:app --host 0.0.0.0 --port 8000`;
+
+    let refBlob = null, refFilename = 'mic.webm', refPitchHint = 1.0;
+    let mediaRecorder = null, chunks = [], timerId = null, recStart = 0, animId = null, audioCtx = null;
+    let speechCancelled = false;
+
+    const $ = id => document.getElementById(id);
+    const els = {
+      statusPill: $('statusPill'), statusText: $('statusText'), recTimer: $('recTimer'),
+      recordBtn: $('recordBtn'), fileInput: $('fileInput'), refName: $('refName'),
+      waveCanvas: $('waveCanvas'), refAudioPlayer: $('refAudioPlayer'),
+      scriptInput: $('scriptInput'), charCounter: $('charCounter'),
+      engineSelect: $('engineSelect'), languageSelect: $('languageSelect'), formatSelect: $('formatSelect'),
+      simSlider: $('simSlider'), speedSlider: $('speedSlider'), tempSlider: $('tempSlider'),
+      simVal: $('simVal'), speedVal: $('speedVal'), tempVal: $('tempVal'),
+      endpointInput: $('endpointInput'), apiKeyInput: $('apiKeyInput'),
+      generateBtn: $('generateBtn'), stopSpeechBtn: $('stopSpeechBtn'),
+      errorBox: $('errorBox'), errorText: $('errorText'), switchOfflineBtn: $('switchOfflineBtn'),
+      outputCard: $('outputCard'), outAudioPlayer: $('outAudioPlayer'),
+      downloadLink: $('downloadLink'), outMeta: $('outMeta'),
+      historyList: $('historyList'), quickHistoryList: $('quickHistoryList'), healthResult: $('healthResult')
+    };
+
+    $('serverCodeBlock').textContent = SERVER_PY;
+    $('guideCodeBlock').textContent = ML_GUIDE;
+
+    function downloadText(filename, text) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+      a.download = filename; a.click();
+    }
+    $('copyServerBtn').onclick = () => navigator.clipboard.writeText(SERVER_PY);
+    $('copyGuideBtn').onclick = () => navigator.clipboard.writeText(ML_GUIDE);
+    $('dlServerBtn').onclick = () => downloadText('server.py', SERVER_PY);
+    $('dlReqBtn').onclick = () => downloadText('requirements.txt', REQUIREMENTS_TXT);
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        ['studio', 'history', 'settings', 'backend'].forEach(t => {
+          $(`tab-${t}`).hidden = (btn.dataset.tab !== t);
+        });
+      };
+    });
+
+    $('themeBtn').onclick = () => {
+      document.body.classList.toggle('light');
+      savePrefs();
+    };
+
+    function setStatus(state, label) {
+      els.statusPill.className = `status-pill status-${state}`;
+      els.statusText.textContent = label;
+    }
+
+    function showError(msg, showSwitch = false) {
+      els.errorText.textContent = msg;
+      els.switchOfflineBtn.hidden = !showSwitch;
+      els.errorBox.hidden = false;
+      setStatus('error', 'Error');
+    }
+
+    function clearError() { els.errorBox.hidden = true; }
+
+    function savePrefs() {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({
+        light: document.body.classList.contains('light'),
+        engine: els.engineSelect.value, endpoint: els.endpointInput.value,
+        apiKey: els.apiKeyInput.value, language: els.languageSelect.value,
+        format: els.formatSelect.value, similarity: els.simSlider.value,
+        speed: els.speedSlider.value, temperature: els.tempSlider.value,
+        script: els.scriptInput.value
+      }));
+    }
+
+    function loadPrefs() {
+      const s = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
+      if (s.light) document.body.classList.add('light');
+      if (s.engine) els.engineSelect.value = s.engine;
+      if (s.endpoint) els.endpointInput.value = s.endpoint;
+      if (s.apiKey) els.apiKeyInput.value = s.apiKey;
+      if (s.language) els.languageSelect.value = s.language;
+      if (s.format) els.formatSelect.value = s.format;
+      if (s.similarity) els.simSlider.value = s.similarity;
+      if (s.speed) els.speedSlider.value = s.speed;
+      if (s.temperature) els.tempSlider.value = s.temperature;
+      if (s.script) els.scriptInput.value = s.script;
+      updateLabels();
+    }
+
+    function updateLabels() {
+      els.simVal.textContent = Number(els.simSlider.value).toFixed(2);
+      els.speedVal.textContent = Number(els.speedSlider.value).toFixed(2) + 'x';
+      els.tempVal.textContent = Number(els.tempSlider.value).toFixed(2);
+      const len = els.scriptInput.value.length;
+      const words = els.scriptInput.value.trim() ? els.scriptInput.value.trim().split(/\s+/).length : 0;
+      els.charCounter.textContent = `${len} chars • ${words} words • Unlimited`;
+    }
+
+    PRESETS.forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'chip'; btn.textContent = p.label;
+      btn.onclick = () => { els.scriptInput.value = p.text; els.languageSelect.value = p.lang; updateLabels(); savePrefs(); };
+      $('presetsRow').appendChild(btn);
+    });
+
+    ['input', 'change'].forEach(evt => {
+      [els.scriptInput, els.engineSelect, els.languageSelect, els.formatSelect, els.simSlider, els.speedSlider, els.tempSlider, els.endpointInput, els.apiKeyInput]
+        .forEach(el => el.addEventListener(evt, () => { updateLabels(); savePrefs(); clearError(); }));
+    });
+
+    async function analyzeRefPitch(blob) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
+        const d = buf.getChannelData(0);
+        let zc = 0, prev = 0, voiced = 0;
+        for (let i = 0; i < Math.min(d.length, buf.sampleRate * 3); i++) {
+          if (Math.abs(d[i]) > 0.02) {
+            voiced++; const s = d[i] >= 0 ? 1 : -1;
+            if (prev && s !== prev) zc++; prev = s;
+          }
+        }
+        await ctx.close();
+        if (voiced > 400) {
+          const zcr = (zc / 2) / (voiced / buf.sampleRate);
+          refPitchHint = Math.max(0.8, Math.min(1.25, 0.85 + ((zcr - 180) / 1400) * 0.35));
+        }
+      } catch (_) { refPitchHint = 1.0; }
+    }
+
+    els.fileInput.onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      refBlob = f; refFilename = f.name;
+      els.refName.textContent = `${f.name} (${Math.round(f.size / 1024)} KB)`;
+      els.refAudioPlayer.src = URL.createObjectURL(f);
+      els.refAudioPlayer.hidden = false;
+      await analyzeRefPitch(f);
+      setStatus('ready', 'Reference Ready');
+    };
+
+    function startWaveform(stream) {
+      els.waveCanvas.hidden = false;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser(); analyser.fftSize = 64;
+      src.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const c = els.waveCanvas.getContext('2d');
+      function draw() {
+        animId = requestAnimationFrame(draw);
+        analyser.getByteFrequencyData(data);
+        c.clearRect(0, 0, els.waveCanvas.width, els.waveCanvas.height);
+        const w = els.waveCanvas.width / data.length;
+        data.forEach((v, i) => {
+          const h = Math.max(4, (v / 255) * els.waveCanvas.height);
+          c.fillStyle = '#22d3ee';
+          c.fillRect(i * w + 1, (els.waveCanvas.height - h) / 2, Math.max(2, w - 2), h);
+        });
+      }
+      draw();
+    }
+
+    els.recordBtn.onclick = async () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop(); clearInterval(timerId); cancelAnimationFrame(animId);
+        if (audioCtx) { audioCtx.close(); audioCtx = null; }
+        els.waveCanvas.hidden = true;
+        els.recordBtn.textContent = '🎙 Record Mic'; els.recordBtn.className = 'btn';
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        chunks = []; mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => chunks.push(e.data);
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          refBlob = new Blob(chunks, { type: 'audio/webm' });
+          refFilename = `mic_${Date.now()}.webm`;
+          els.refName.textContent = `${refFilename} (${Math.round(refBlob.size / 1024)} KB)`;
+          els.refAudioPlayer.src = URL.createObjectURL(refBlob);
+          els.refAudioPlayer.hidden = false;
+          await analyzeRefPitch(refBlob);
+          setStatus('ready', 'Recording Ready');
+        };
+        mediaRecorder.start(); startWaveform(stream);
+        recStart = Date.now(); setStatus('recording', 'Recording...');
+        els.recordBtn.textContent = '⏹ Stop Recording'; els.recordBtn.className = 'btn btn-danger';
+        timerId = setInterval(() => {
+          const ms = Date.now() - recStart, s = Math.floor(ms / 1000);
+          els.recTimer.textContent = `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}.${Math.floor((ms%1000)/100)}`;
+        }, 100);
+      } catch (err) { showError('Microphone permission denied or unavailable.'); }
+    };
+
+    function splitIntoChunks(text, maxLen = 220) {
+      const cleaned = text.trim(); if (cleaned.length <= maxLen) return [cleaned];
+      const out = []; let start = 0;
+      while (start < cleaned.length) {
+        const end = Math.min(cleaned.length, start + maxLen);
+        if (end === cleaned.length) { out.push(cleaned.slice(start).trim()); break; }
+        let cut = -1;
+        for (const sep of ['। ', '. ', '! ', '? ', '\n', ', ', ' ']) {
+          const idx = cleaned.lastIndexOf(sep, end);
+          if (idx > start + maxLen / 3) { cut = idx + sep.length; break; }
+        }
+        if (cut <= start) cut = end;
+        const part = cleaned.slice(start, cut).trim();
+        if (part) out.push(part);
+        start = cut;
+      }
+      return out;
+    }
+
+    function speakOffline(text, lang) {
+      if (!('speechSynthesis' in window)) {
+        showError('SpeechSynthesis is not available in this browser/WebView. Open this HTML in Google Chrome or connect a FastAPI server.');
+        return;
+      }
+      window.speechSynthesis.cancel(); speechCancelled = false;
+      const list = splitIntoChunks(text, 220); let idx = 0;
+      els.stopSpeechBtn.hidden = false;
+      const map = { bn: 'bn-BD', hi: 'hi-IN', en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', ja: 'ja-JP', ar: 'ar-SA' };
+      const sim = Number(els.simSlider.value);
+      const pitch = Math.max(0.6, Math.min(1.5, 1.0 * (1 - sim) + refPitchHint * sim));
+
+      function next() {
+        if (speechCancelled || idx >= list.length) {
+          els.stopSpeechBtn.hidden = true;
+          if (!speechCancelled) { setStatus('ready', 'Finished Speaking'); addHistory(text, lang, 'speech'); }
+          else setStatus('idle', 'Stopped');
+          return;
+        }
+        setStatus('generating', `Speaking (${idx + 1}/${list.length})...`);
+        const u = new SpeechSynthesisUtterance(list[idx]);
+        u.lang = map[lang] || lang; u.rate = Number(els.speedSlider.value); u.pitch = pitch;
+        u.onend = () => { idx++; next(); };
+        u.onerror = (e) => { els.stopSpeechBtn.hidden = true; showError(`Speech error: ${e.error || 'unavailable'}`); };
+        window.speechSynthesis.speak(u);
+      }
+      next();
+    }
+
+    els.stopSpeechBtn.onclick = () => {
+      speechCancelled = true;
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      els.stopSpeechBtn.hidden = true; setStatus('idle', 'Stopped');
+    };
+
+    els.switchOfflineBtn.onclick = () => {
+      els.engineSelect.value = 'offline'; savePrefs(); clearError(); els.generateBtn.click();
+    };
+
+    function addHistory(text, lang, fmt) {
+      const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      h.unshift({ text, lang, fmt, time: new Date().toLocaleTimeString() });
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, 20)));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const items = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      [els.historyList, els.quickHistoryList].forEach((container, idx) => {
+        const slice = idx === 1 ? items.slice(0, 4) : items;
+        container.innerHTML = slice.length ? '' : '<span style="color:var(--muted);font-size:0.84rem;">No syntheses yet.</span>';
+        slice.forEach(item => {
+          const div = document.createElement('div'); div.className = 'history-item';
+          div.innerHTML = `<div style="flex:1;min-width:180px;"><div style="font-size:0.86rem;font-weight:600;">${item.text.slice(0,64)}${item.text.length>64?'...':''}</div><div class="mono" style="color:var(--muted);">${item.lang.toUpperCase()} • ${item.fmt.toUpperCase()} • ${item.time}</div></div>`;
+          const btn = document.createElement('button'); btn.className = 'chip'; btn.textContent = 'Load';
+          btn.onclick = () => {
+            els.scriptInput.value = item.text; els.languageSelect.value = item.lang; updateLabels();
+            document.querySelector('[data-tab="studio"]').click();
+          };
+          div.appendChild(btn); container.appendChild(div);
+        });
+      });
+    }
+
+    $('clearHistoryBtn').onclick = () => { localStorage.removeItem(HISTORY_KEY); renderHistory(); };
+
+    $('testHealthBtn').onclick = async () => {
+      const base = els.endpointInput.value.trim().replace(/\/+$/, '');
+      const headers = els.apiKeyInput.value.trim() ? { 'Authorization': `Bearer ${els.apiKeyInput.value.trim()}` } : {};
+      els.healthResult.hidden = false; els.healthResult.className = 'mono';
+      els.healthResult.textContent = 'Checking /health...';
+      try {
+        const t0 = performance.now();
+        const r = await fetch(`${base}/health`, { headers });
+        const data = await r.json();
+        els.healthResult.className = 'ok-box';
+        els.healthResult.textContent = `Connected (${Math.round(performance.now()-t0)} ms) • Model: ${data.model} • Device: ${data.device}`;
+      } catch (err) {
+        els.healthResult.className = 'error-box';
+        els.healthResult.textContent = `Unreachable: ${err.message}. Start server.py or use Offline Browser Speech.`;
+      }
+    };
+
+    els.generateBtn.onclick = async () => {
+      clearError();
+      const text = els.scriptInput.value.trim();
+      if (!text) return showError('Enter text to synthesize first.');
+      if (els.engineSelect.value === 'offline') return speakOffline(text, els.languageSelect.value);
+      if (!refBlob) return showError('FastAPI Zero-Shot mode requires recording or uploading a reference audio sample first.');
+
+      const form = new FormData();
+      form.append('reference_audio', refBlob, refFilename);
+      form.append('text', text); form.append('language', els.languageSelect.value);
+      form.append('speed', els.speedSlider.value); form.append('similarity', els.simSlider.value);
+      form.append('temperature', els.tempSlider.value); form.append('output_format', els.formatSelect.value);
+      const headers = els.apiKeyInput.value.trim() ? { 'Authorization': `Bearer ${els.apiKeyInput.value.trim()}` } : {};
+
+      try {
+        setStatus('uploading', 'Uploading & Generating...');
+        const base = els.endpointInput.value.trim().replace(/\/+$/, '');
+        const res = await fetch(`${base}/api/v1/clone`, { method: 'POST', headers, body: form });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob(), url = URL.createObjectURL(blob);
+        els.outAudioPlayer.src = url; els.downloadLink.href = url;
+        els.downloadLink.download = `voxclone_${Date.now()}.${els.formatSelect.value}`;
+        els.outMeta.textContent = `${Math.round(blob.size / 1024)} KB`;
+        els.outputCard.hidden = false; setStatus('ready', 'Audio Ready');
+        addHistory(text, els.languageSelect.value, els.formatSelect.value);
+      } catch (err) {
+        showError(`Cannot reach FastAPI server (${err.message}).`, true);
+      }
+    };
+
+    loadPrefs();
+    renderHistory();
+  </script>
+</body>
+</html>
