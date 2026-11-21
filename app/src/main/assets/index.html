@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VoxClone Studio — Zero-Shot Voice Cloning</title>
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --surface: #131822;
+      --surface-2: #1b2230;
+      --border: #2c364b;
+      --cyan: #22d3ee;
+      --amber: #f59e0b;
+      --green: #10b981;
+      --red: #f43f5e;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: radial-gradient(circle at top right, #122336 0%, var(--bg) 45%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px 14px 48px;
+      line-height: 1.5;
+    }
+    .container { max-width: 1040px; margin: 0 auto; display: grid; gap: 18px; }
+    header {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 18px 20px;
+    }
+    .brand h1 { font-size: 1.4rem; letter-spacing: -0.02em; }
+    .brand p { color: var(--muted); font-size: 0.86rem; }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px;
+      font-size: 0.82rem; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .status-idle .dot { background: var(--muted); }
+    .status-recording .dot, .status-uploading .dot, .status-generating .dot {
+      background: var(--amber); box-shadow: 0 0 10px var(--amber); animation: pulse 1s infinite;
+    }
+    .status-ready .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .status-error .dot { background: var(--red); }
+    @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.35; } }
+    .grid { display: grid; grid-template-columns: 1.25fr 0.9fr; gap: 18px; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 18px;
+      display: flex; flex-direction: column; gap: 13px;
+    }
+    .card h2 { font-size: 1.02rem; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    label { font-size: 0.82rem; color: var(--muted); display: block; margin-bottom: 6px; }
+    input[type="text"], input[type="password"], select, textarea {
+      width: 100%; background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 12px; font-size: 0.92rem; outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
+    textarea { min-height: 140px; resize: vertical; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .btn {
+      cursor: pointer; border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+      padding: 10px 16px; border-radius: 12px; font-weight: 600; font-size: 0.88rem;
+      display: inline-flex; align-items: center; gap: 8px; transition: 0.15s; text-decoration: none;
+    }
+    .btn:hover { border-color: var(--cyan); }
+    .btn-primary { background: var(--cyan); color: #042229; border-color: transparent; }
+    .btn-danger { background: #42101b; color: #fecdd3; border-color: #881337; }
+    .chip {
+      cursor: pointer; font-size: 0.78rem; padding: 5px 11px; border-radius: 999px;
+      background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+    }
+    .chip:hover { color: var(--text); border-color: var(--cyan); }
+    .slider-group { display: grid; gap: 10px; }
+    .slider-header { display: flex; justify-content: space-between; font-size: 0.84rem; }
+    input[type="range"] { width: 100%; accent-color: var(--cyan); }
+    audio { width: 100%; margin-top: 4px; }
+    .history-item {
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px;
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+    .error-box {
+      background: #42101b; border: 1px solid #881337; color: #fecdd3;
+      border-radius: 12px; padding: 12px; font-size: 0.85rem; display: grid; gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <h1>VoxClone Studio</h1>
+        <p>Zero-Shot Voice Cloning • FastAPI Server + Offline Browser Speech</p>
+      </div>
+      <div id="statusPill" class="status-pill status-idle">
+        <span class="dot"></span>
+        <span id="statusText">Idle</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div style="display: grid; gap: 18px;">
+        <section class="card">
+          <h2>1. Reference Voice Sample <span id="recTimer" class="mono">00:00.0</span></h2>
+          <div class="row">
+            <button id="recordBtn" class="btn">🎙 Record Mic</button>
+            <label class="btn" style="margin:0;">
+              📁 Upload WAV/MP3
+              <input id="fileInput" type="file" accept="audio/*" hidden />
+            </label>
+            <span id="refName" style="font-size:0.84rem; color:var(--muted);">No reference loaded</span>
+          </div>
+          <audio id="refAudioPlayer" controls hidden></audio>
+        </section>
+
+        <section class="card">
+          <h2>2. Script &amp; Language <span id="charCounter" class="mono">0 chars • Unlimited</span></h2>
+          <div class="row" id="presetsRow"></div>
+          <textarea id="scriptInput" placeholder="Enter unlimited text to synthesize..."></textarea>
+          <div class="row">
+            <div style="flex:1; min-width: 170px;">
+              <label for="engineSelect">Synthesis Engine</label>
+              <select id="engineSelect">
+                <option value="offline">Offline Browser Speech (No Server Needed)</option>
+                <option value="fastapi">FastAPI Zero-Shot Server (XTTS-v2)</option>
+              </select>
+            </div>
+            <div style="flex:1; min-width: 150px;">
+              <label for="languageSelect">Target Language</label>
+              <select id="languageSelect">
+                <option value="en">English (en)</option>
+                <option value="bn">Bengali / বাংলা (bn)</option>
+                <option value="hi">Hindi / हिन्दी (hi)</option>
+                <option value="es">Spanish (es)</option>
+                <option value="fr">French (fr)</option>
+                <option value="de">German (de)</option>
+                <option value="ja">Japanese (ja)</option>
+              </select>
+            </div>
+            <div style="flex:1; min-width: 130px;">
+              <label for="formatSelect">Server Format</label>
+              <select id="formatSelect">
+                <option value="wav">WAV</option>
+                <option value="flac">FLAC</option>
+                <option value="ogg">OGG</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <button id="generateBtn" class="btn btn-primary" style="flex:1; justify-content:center; padding: 13px;">
+              ⚡ Generate Speech
+            </button>
+            <button id="stopSpeechBtn" class="btn btn-danger" hidden>⏹ Stop</button>
+          </div>
+          <div id="errorBox" class="error-box" hidden>
+            <div id="errorText"></div>
+            <button id="switchOfflineBtn" class="btn" style="justify-content:center;">
+              Switch to Offline Browser Speech (No Server Needed)
+            </button>
+          </div>
+        </section>
+
+        <section class="card" id="outputCard" hidden>
+          <h2>3. Generated Audio Output</h2>
+          <audio id="outAudioPlayer" controls></audio>
+          <div class="row">
+            <a id="downloadLink" class="btn btn-primary" download="voxclone_output.wav">⬇ Download Audio</a>
+            <span id="outMeta" class="mono" style="color:var(--muted);"></span>
+          </div>
+        </section>
+      </div>
+
+      <div style="display: grid; gap: 18px; align-content: start;">
+        <section class="card">
+          <h2>Voice Controls &amp; API</h2>
+          <div class="slider-group">
+            <div>
+              <div class="slider-header"><span>Similarity / Pitch Match</span><span id="simVal" class="mono">0.78</span></div>
+              <input id="simSlider" type="range" min="0" max="1" step="0.01" value="0.78" />
+            </div>
+            <div>
+              <div class="slider-header"><span>Speed</span><span id="speedVal" class="mono">1.00x</span></div>
+              <input id="speedSlider" type="range" min="0.5" max="2.0" step="0.05" value="1.0" />
+            </div>
+            <div>
+              <div class="slider-header"><span>Temperature</span><span id="tempVal" class="mono">0.65</span></div>
+              <input id="tempSlider" type="range" min="0.1" max="1.0" step="0.05" value="0.65" />
+            </div>
+          </div>
+          <div>
+            <label for="endpointInput">FastAPI Endpoint URL (Only for Server Mode)</label>
+            <input id="endpointInput" type="text" value="http://localhost:8000" />
+          </div>
+          <div>
+            <label for="apiKeyInput">API Key (Optional)</label>
+            <input id="apiKeyInput" type="password" placeholder="Bearer / X-API-Key" />
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Recent History <button id="clearHistoryBtn" class="chip">Clear</button></h2>
+          <div id="historyList" style="display:grid; gap:10px;"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PREFS_KEY = 'voxclone_prefs_v2';
+    const HISTORY_KEY = 'voxclone_history_v1';
+    const PRESETS = [
+      { label: 'Podcast EN', lang: 'en', text: 'Welcome back to Neural Acoustics. Today we turn a six-second voice sample into expressive speech.' },
+      { label: 'Bengali BN', lang: 'bn', text: 'নমস্কার, ভক্সক্লোন স্টুডিওতে আপনাকে স্বাগতম। এটি বাংলা ভাষায় কণ্ঠস্বর সংশ্লেষণের একটি উদাহরণ।' },
+      { label: 'Hindi HI', lang: 'hi', text: 'नमस्ते, वॉक्सक्लोन स्टूडियो में आपका स्वागत है। यह ज़ीरो-शॉट वॉयस क्लोनिंग का उदाहरण है।' }
+    ];
+
+    let refBlob = null, refFilename = 'mic_sample.webm', refPitchHint = 1.0;
+    let mediaRecorder = null, chunks = [], timerId = null, recStart = 0, speechQueueCancelled = false;
+
+    const els = {
+      statusPill: document.getElementById('statusPill'),
+      statusText: document.getElementById('statusText'),
+      recTimer: document.getElementById('recTimer'),
+      recordBtn: document.getElementById('recordBtn'),
+      fileInput: document.getElementById('fileInput'),
+      refName: document.getElementById('refName'),
+      refAudioPlayer: document.getElementById('refAudioPlayer'),
+      scriptInput: document.getElementById('scriptInput'),
+      charCounter: document.getElementById('charCounter'),
+      engineSelect: document.getElementById('engineSelect'),
+      languageSelect: document.getElementById('languageSelect'),
+      formatSelect: document.getElementById('formatSelect'),
+      simSlider: document.getElementById('simSlider'),
+      speedSlider: document.getElementById('speedSlider'),
+      tempSlider: document.getElementById('tempSlider'),
+      simVal: document.getElementById('simVal'),
+      speedVal: document.getElementById('speedVal'),
+      tempVal: document.getElementById('tempVal'),
+      endpointInput: document.getElementById('endpointInput'),
+      apiKeyInput: document.getElementById('apiKeyInput'),
+      generateBtn: document.getElementById('generateBtn'),
+      stopSpeechBtn: document.getElementById('stopSpeechBtn'),
+      errorBox: document.getElementById('errorBox'),
+      errorText: document.getElementById('errorText'),
+      switchOfflineBtn: document.getElementById('switchOfflineBtn'),
+      outputCard: document.getElementById('outputCard'),
+      outAudioPlayer: document.getElementById('outAudioPlayer'),
+      downloadLink: document.getElementById('downloadLink'),
+      outMeta: document.getElementById('outMeta'),
+      historyList: document.getElementById('historyList')
+    };
+
+    function setStatus(state, label) {
+      els.statusPill.className = `status-pill status-${state}`;
+      els.statusText.textContent = label;
+    }
+
+    function showError(msg, showSwitch = false) {
+      els.errorText.textContent = msg;
+      els.switchOfflineBtn.hidden = !showSwitch;
+      els.errorBox.hidden = false;
+      setStatus('error', 'Error');
+    }
+
+    function clearError() {
+      els.errorBox.hidden = true;
+    }
+
+    function savePrefs() {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({
+        engine: els.engineSelect.value,
+        endpoint: els.endpointInput.value,
+        apiKey: els.apiKeyInput.value,
+        language: els.languageSelect.value,
+        format: els.formatSelect.value,
+        similarity: els.simSlider.value,
+        speed: els.speedSlider.value,
+        temperature: els.tempSlider.value,
+        script: els.scriptInput.value
+      }));
+    }
+
+    function loadPrefs() {
+      const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
+      if (saved.engine) els.engineSelect.value = saved.engine;
+      if (saved.endpoint) els.endpointInput.value = saved.endpoint;
+      if (saved.apiKey) els.apiKeyInput.value = saved.apiKey;
+      if (saved.language) els.languageSelect.value = saved.language;
+      if (saved.format) els.formatSelect.value = saved.format;
+      if (saved.similarity) els.simSlider.value = saved.similarity;
+      if (saved.speed) els.speedSlider.value = saved.speed;
+      if (saved.temperature) els.tempSlider.value = saved.temperature;
+      if (saved.script) els.scriptInput.value = saved.script;
+      updateLabels();
+    }
+
+    function updateLabels() {
+      els.simVal.textContent = Number(els.simSlider.value).toFixed(2);
+      els.speedVal.textContent = Number(els.speedSlider.value).toFixed(2) + 'x';
+      els.tempVal.textContent = Number(els.tempSlider.value).toFixed(2);
+      els.charCounter.textContent = `${els.scriptInput.value.length} chars • Unlimited`;
+    }
+
+    async function analyzeRefPitch(blob) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const arr = await blob.arrayBuffer();
+        const audioBuf = await ctx.decodeAudioData(arr);
+        const data = audioBuf.getChannelData(0);
+        let zc = 0, prev = 0, voiced = 0;
+        const limit = Math.min(data.length, audioBuf.sampleRate * 3);
+        for (let i = 0; i < limit; i++) {
+          if (Math.abs(data[i]) > 0.02) {
+            voiced++;
+            const s = data[i] >= 0 ? 1 : -1;
+            if (prev !== 0 && s !== prev) zc++;
+            prev = s;
+          }
+        }
+        await ctx.close();
+        if (voiced > 400) {
+          const zcrHz = (zc / 2) / (voiced / audioBuf.sampleRate);
+          refPitchHint = Math.max(0.8, Math.min(1.25, 0.85 + ((zcrHz - 180) / 1400) * 0.35));
+        }
+      } catch (_) {
+        refPitchHint = 1.0;
+      }
+    }
+
+    PRESETS.forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'chip';
+      btn.textContent = p.label;
+      btn.onclick = () => {
+        els.scriptInput.value = p.text;
+        els.languageSelect.value = p.lang;
+        updateLabels();
+        savePrefs();
+      };
+      document.getElementById('presetsRow').appendChild(btn);
+    });
+
+    ['input', 'change'].forEach(evt => {
+      [els.scriptInput, els.engineSelect, els.languageSelect, els.formatSelect, els.simSlider, els.speedSlider, els.tempSlider, els.endpointInput, els.apiKeyInput]
+        .forEach(el => el.addEventListener(evt, () => { updateLabels(); savePrefs(); clearError(); }));
+    });
+
+    els.fileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      refBlob = file;
+      refFilename = file.name;
+      els.refName.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+      els.refAudioPlayer.src = URL.createObjectURL(file);
+      els.refAudioPlayer.hidden = false;
+      await analyzeRefPitch(file);
+      setStatus('ready', 'Reference Ready');
+    };
+
+    els.recordBtn.onclick = async () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        clearInterval(timerId);
+        els.recordBtn.textContent = '🎙 Record Mic';
+        els.recordBtn.className = 'btn';
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        chunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => chunks.push(e.data);
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          refBlob = new Blob(chunks, { type: 'audio/webm' });
+          refFilename = `mic_${Date.now()}.webm`;
+          els.refName.textContent = `${refFilename} (${Math.round(refBlob.size / 1024)} KB)`;
+          els.refAudioPlayer.src = URL.createObjectURL(refBlob);
+          els.refAudioPlayer.hidden = false;
+          await analyzeRefPitch(refBlob);
+          setStatus('ready', 'Recording Ready');
+        };
+        mediaRecorder.start();
+        recStart = Date.now();
+        setStatus('recording', 'Recording...');
+        els.recordBtn.textContent = '⏹ Stop Recording';
+        els.recordBtn.className = 'btn btn-danger';
+        timerId = setInterval(() => {
+          const ms = Date.now() - recStart;
+          const s = Math.floor(ms / 1000);
+          els.recTimer.textContent = `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}.${Math.floor((ms%1000)/100)}`;
+        }, 100);
+      } catch (err) {
+        showError('Microphone permission denied or unavailable.');
+      }
+    };
+
+    function splitIntoChunks(text, maxLen = 220) {
+      const cleaned = text.trim();
+      if (cleaned.length <= maxLen) return [cleaned];
+      const out = [];
+      let start = 0;
+      while (start < cleaned.length) {
+        const end = Math.min(cleaned.length, start + maxLen);
+        if (end === cleaned.length) {
+          out.push(cleaned.slice(start).trim());
+          break;
+        }
+        let splitAt = -1;
+        for (const sep of ['। ', '. ', '! ', '? ', '\n', ', ', ' ']) {
+          const idx = cleaned.lastIndexOf(sep, end);
+          if (idx > start + maxLen / 3) {
+            splitAt = idx + sep.length;
+            break;
+          }
+        }
+        if (splitAt <= start) splitAt = end;
+        const part = cleaned.slice(start, splitAt).trim();
+        if (part) out.push(part);
+        start = splitAt;
+      }
+      return out;
+    }
+
+    function speakOffline(text, lang) {
+      if (!('speechSynthesis' in window)) {
+        showError('Offline Web Speech API is not supported in this WebView. Use the native Android VoxClone APK (built from Gradle/AI Studio) for offline WAV export.');
+        return;
+      }
+      window.speechSynthesis.cancel();
+      speechQueueCancelled = false;
+      const chunksList = splitIntoChunks(text, 220);
+      let idx = 0;
+      els.stopSpeechBtn.hidden = false;
+      setStatus('generating', `Speaking (1/${chunksList.length})...`);
+
+      const langMap = { bn: 'bn-BD', hi: 'hi-IN', en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', ja: 'ja-JP' };
+      const sim = Number(els.simSlider.value);
+      const pitch = 1.0 * (1 - sim) + refPitchHint * sim;
+
+      function nextChunk() {
+        if (speechQueueCancelled || idx >= chunksList.length) {
+          els.stopSpeechBtn.hidden = true;
+          if (!speechQueueCancelled) {
+            setStatus('ready', 'Finished Speaking');
+            addHistory(text, lang, 'speech');
+          } else {
+            setStatus('idle', 'Stopped');
+          }
+          return;
+        }
+        setStatus('generating', `Speaking (${idx + 1}/${chunksList.length})...`);
+        const utter = new SpeechSynthesisUtterance(chunksList[idx]);
+        utter.lang = langMap[lang] || lang;
+        utter.rate = Number(els.speedSlider.value);
+        utter.pitch = Math.max(0.6, Math.min(1.5, pitch));
+        utter.onend = () => { idx++; nextChunk(); };
+        utter.onerror = (e) => {
+          els.stopSpeechBtn.hidden = true;
+          showError(`Offline speech error (${e.error || 'unavailable'}). For offline .wav file download on mobile, use the native Android VoxClone APK from AI Studio.`);
+        };
+        window.speechSynthesis.speak(utter);
+      }
+      nextChunk();
+    }
+
+    els.stopSpeechBtn.onclick = () => {
+      speechQueueCancelled = true;
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      els.stopSpeechBtn.hidden = true;
+      setStatus('idle', 'Stopped');
+    };
+
+    els.switchOfflineBtn.onclick = () => {
+      els.engineSelect.value = 'offline';
+      savePrefs();
+      clearError();
+      els.generateBtn.click();
+    };
+
+    function addHistory(text, lang, fmt) {
+      const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      history.unshift({ text, lang, fmt, time: new Date().toLocaleTimeString() });
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 15)));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const items = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      els.historyList.innerHTML = items.length ? '' : '<span style="color:var(--muted);font-size:0.84rem;">No syntheses yet.</span>';
+      items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        div.innerHTML = `<div><div style="font-size:0.86rem;font-weight:600;">${item.text.slice(0,48)}...</div><div class="mono" style="color:var(--muted);">${item.lang.toUpperCase()} • ${item.fmt.toUpperCase()} • ${item.time}</div></div>`;
+        const btn = document.createElement('button');
+        btn.className = 'chip';
+        btn.textContent = 'Load';
+        btn.onclick = () => { els.scriptInput.value = item.text; els.languageSelect.value = item.lang; updateLabels(); };
+        div.appendChild(btn);
+        els.historyList.appendChild(div);
+      });
+    }
+
+    document.getElementById('clearHistoryBtn').onclick = () => {
+      localStorage.removeItem(HISTORY_KEY);
+      renderHistory();
+    };
+
+    els.generateBtn.onclick = async () => {
+      clearError();
+      const text = els.scriptInput.value.trim();
+      if (!text) return showError('Enter text to synthesize first.');
+
+      if (els.engineSelect.value === 'offline') {
+        speakOffline(text, els.languageSelect.value);
+        return;
+      }
+
+      if (!refBlob) return showError('FastAPI Zero-Shot mode requires uploading or recording a reference audio sample first.');
+
+      const form = new FormData();
+      form.append('reference_audio', refBlob, refFilename);
+      form.append('text', text);
+      form.append('language', els.languageSelect.value);
+      form.append('speed', els.speedSlider.value);
+      form.append('similarity', els.simSlider.value);
+      form.append('temperature', els.tempSlider.value);
+      form.append('output_format', els.formatSelect.value);
+
+      const headers = {};
+      if (els.apiKeyInput.value.trim()) {
+        headers['Authorization'] = `Bearer ${els.apiKeyInput.value.trim()}`;
+      }
+
+      try {
+        setStatus('uploading', 'Uploading & Generating...');
+        const base = els.endpointInput.value.trim().replace(/\/+$/, '');
+        const res = await fetch(`${base}/api/v1/clone`, { method: 'POST', headers, body: form });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        els.outAudioPlayer.src = url;
+        els.downloadLink.href = url;
+        els.downloadLink.download = `voxclone_${Date.now()}.${els.formatSelect.value}`;
+        els.outMeta.textContent = `${Math.round(blob.size / 1024)} KB • ${res.headers.get('X-Inference-Ms') || '?'} ms`;
+        els.outputCard.hidden = false;
+        setStatus('ready', 'Audio Ready');
+        addHistory(text, els.languageSelect.value, els.formatSelect.value);
+      } catch (err) {
+        showError(
+          `Cannot reach FastAPI server (${err.message}). Make sure server.py is running or switch to Offline Browser Speech.`,
+          true
+        );
+      }
+    };
+
+    loadPrefs();
+    renderHistory();
+  </script>
+</body>
+</html>

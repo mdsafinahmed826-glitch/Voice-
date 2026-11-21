@@ -1,0 +1,23 @@
+<resources>
+    <string name="app_name">VoxClone</string>
+    <string name="studio_subtitle">Zero-Shot Voice Cloning &amp; Speech Studio</string>
+    <string name="tab_studio">Studio</string>
+    <string name="tab_history">History</string>
+    <string name="tab_settings">Settings</string>
+    <string name="tab_pipeline">Backend</string>
+    <string name="status_idle">Idle</string>
+    <string name="status_recording">Recording</string>
+    <string name="status_uploading">Uploading</string>
+    <string name="status_generating">Generating</string>
+    <string name="status_ready">Ready</string>
+    <string name="status_error">Error</string>
+    <string name="record_voice">Record Mic</string>
+    <string name="stop_recording">Stop Rec</string>
+    <string name="upload_sample">Upload Audio</string>
+    <string name="synthesize_speech">Clone &amp; Synthesize</string>
+    <string name="synthesize_local">Synthesize Audio</string>
+    <string name="download_audio">Save Audio</string>
+    <string name="share_audio">Share</string>
+    <string name="clear_history">Clear All</string>
+    <string name="test_connection">Test Endpoint</string>
+</resources>

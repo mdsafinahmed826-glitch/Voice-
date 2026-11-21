@@ -1,0 +1,6 @@
+{
+  "name": "VoxClone Studio",
+  "description": "Zero-shot voice cloning studio with microphone recording, reference audio upload, multilingual TTS synthesis, FastAPI backend integration, and generation history.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

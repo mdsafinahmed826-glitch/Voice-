@@ -1,0 +1,17 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.12
+numpy>=1.26.4
+scipy>=1.13.0
+soundfile>=0.12.1
+librosa>=0.10.2
+noisereduce>=3.0.2
+pyloudnorm>=0.1.1
+
+# Deep Learning & Zero-Shot Voice Cloning (install PyTorch matching your CUDA version)
+torch>=2.3.0
+torchaudio>=2.3.0
+TTS>=0.22.0
+# Optional alternative backends:
+# f5-tts>=0.1.0
+# fish-speech>=1.4.0
